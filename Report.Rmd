@@ -1,0 +1,41 @@
+---
+title: "Capestone Project"
+author: "James Strayer"
+date: "02/01/2020"
+output:
+  html_document:
+    df_print: paged
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Introduction
+I was asked by a manager of Restaurant that does retail, to predict his Sales, considering the sales of 2018,2017 and 2016. 
+
+```{r ,}
+library(tidyverse)
+#Importing Hours worked each day data
+TimeWorked <- read_csv("Data/TimeWorked.csv")
+#Calculating number of hours worked for each day
+TimePerDay<-TimeWorked%>%group_by(Date)%>%summarize(Total_hours=sum(`Qte(hre)`))
+#Importing Daily Sales data
+DailySales<-read_csv("Data/DailySales.csv")
+#Creation of the data set needed for the Analysis Where we have both hours worked and sales by departement
+CleanedData<-TimePerDay%>%inner_join(DailySales,by='Date')
+```
+
+## Data exploration
+  
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+## Modeling Data
+
+## Discussion
