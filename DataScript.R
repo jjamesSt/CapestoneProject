@@ -41,8 +41,16 @@ if(!require(forecast)){
   install.packages("forecast")
 }
 library(forecast)
+#Broom-style tidiers for forecast package
+if(!require(sweep)){
+  install.packages("sweep")
+}
+library(sweep) 
 #Creation of the train and test set
 train_set<-DataForAnalysis%>%filter(Year<2019)
 test_set<-DataForAnalysis%>%filter(Year==2019)
-#Creation of the time series data
-ts_train<-ts(train_set$Sales,start = c(2016,1),frequency = 365)
+#Creation of the time series data for the ARIMA model
+ts_train<-tk_ts(DataForAnalysis$Sales,start = 2016,end=2019,frequency = 365)
+#Build ARIMA model
+fit_arima<-auto.arima(ts_arima)
+sw_augment(ts_arima)

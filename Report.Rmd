@@ -97,8 +97,25 @@ if(!require(timetk)){
   install.packages("timetk")
 }
 library(timetk)
+#library to index tibble on date
+if(!require(tibbletime)){
+  install.packages("tibbletime")
+}
+library(tibbletime)
 ```
-The goal here is to test to 2 models to predict sales at a given week knowing the previous weeks. We will wan to try to predict the first week of 2019. We going to compare Linear Regression and ARIMA (Auto Regressive Integrated Moving Average) model (you can have a brief summary of ARIMA model here:https://machinelearningmastery.com/gentle-introduction-box-jenkins-method-time-series-forecasting/)
+We then transform the data to train and test data and transform the train data into a time serie
+```{r,echo=FALSE}
+#creation of train_set and test_set
+train_set<-DataForAnalysis%>%filter(Year<2019)
+test_set<-DataForAnalysis%>%filter(Year==2019)
+#Create time series with just Days and total sales for the model training
+DataForTS<-DataForAnalysis%>%select(-Year,-Retail,-TakeOutSales,-Bar_Sales,-Sales_Restaurant,-Weekday,-Month)
+DataForTS<-as_tbl_time(DataForTS,index=Date)
+ts_train<-tk_ts(DataForTS$Sales,start = 2016,end=2018,frequency = 365)
+ts_test<-tk_ts(DataForAnalysis$Sales,start=2018,end = 2019,frequency=365)
+```
+## Modeling Data
+We are going to test to 2 models to predict sales at a given week knowing the previous weeks. We will wan to try to predict the first week of 2019. We going to compare Linear Regression and ARIMA (Auto Regressive Integrated Moving Average) model (you can have a brief summary of ARIMA model here:https://machinelearningmastery.com/gentle-introduction-box-jenkins-method-time-series-forecasting/)
 
 We use the forecast packages to use it:
 ```{r, echo=FALSE}
@@ -106,13 +123,20 @@ if(!require(forecast)){
   install.packages("forecast")
 }
 library(forecast)
-```
-We then transform the data to train and test data and transform the train data into a time serie
-```{r,echo=FALSE}
-#creation of train_set and test_set
-train_set<-DataForAnalysis%>%filter(Year<2019)
-test_set<-DataForAnalysis%>%filter(Year==2019)
-```
-## Modeling Data
+#Broom-style tidiers for forecast package
+if(!require(sweep)){
+  install.packages("sweep")
+}
+library(sweep) 
+#Build ARIMA model
+fit_arima<-auto.arima(ts_train)
 
+summary(fit_arima)
+#see the acutal value with the prediction
+sw_augment(fit_arima)
+```
+We see that as we go forward in time the residual get corrected by the mean of the previous days we can visualize the evolution of the residuals:
+```{r,echo=FALSE}
+#Visualization of the predictions
+```
 ## Discussion
