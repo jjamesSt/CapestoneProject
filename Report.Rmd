@@ -3,16 +3,22 @@ title: "Capestone Project"
 author: "James Strayer"
 date: "02/01/2020"
 output:
+  html_document:
+    df_print: paged
   pdf_document: default
 ---
 
 
 
-## Introduction
-I was asked by a manager of Restaurant that does retail, to have a model to predict his sales for a given week, he gave me a file with the sales  since end of March 2015. 
+# Introduction
+I was asked by a manager of Restaurant that does retail, to have a model to predict his sales for a given week, he gave me a file with the sales  since end of March 2015. He started as the manager on 01-10-2018
 
+## Data import and cleaning
 ```{r echo=FALSE}
-library(tidyverse)
+if(!require(tidyverse)){
+  install.packages("tidyverse")
+  library(tidyverse)
+}
 #Importing data
 DailySales<-read_csv("Data/DailySales.csv")
 glimpse(DailySales)
@@ -53,18 +59,60 @@ https://www.statutoryholidays.com/2017.php, all dates with observance National, 
 ```{r }
 #Add a column for EventDay
 DataForAnalysis<-DataForAnalysis%>%mutate(EventDay=ifelse(Date %in% Event,TRUE,FALSE))
+```
+
+# Data exploration
+```{r}
+#look at the structure of the data
 glimpse(DataForAnalysis)
 ```
+We want to have full years to have the same thing amount of days in the year to predict 2019 weeks. So we filter for 2016 and more
 
-## Data exploration
-  
-You can also embed plots, for example:
+```{r,echo=FALSE}
+#filter for 2016,2017,2018 and 2019
+DataForAnalysis<-DataForAnalysis%>%filter(Year>=2016)
+```
+```{r}
+#Summary statistics for the variable
+summary(DataForAnalysis)
+```
+In our data set we have 10 variables for 1715 observations corresponding to the number of days the restaurant was open since the 29-03-2015.
 
-```{r pressure, echo=FALSE}
+## Sales Variable
+```{r,echo=FALSE}
+#Distribution of Sales by Year
+DataForAnalysis%>%group_by(Year)%>%ggplot(aes(x=Date,y=Sales,group=Year))+geom_boxplot()+ggtitle("Sales distribution by Year")
+```
+We see In the box plot above that 2019 was similar to 2018 in term of sales but with 2 outliers
+```{r, echo=FALSE}
+#Distribution of Sales by weekday for each year
+DataForAnalysis%>%group_by(Weekday)%>%ggplot(aes(x=Weekday,y=Sales))+geom_boxplot()+facet_wrap(DataForAnalysis$Year)+ggtitle("Sales distribution by Day of the Week for each year")
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+In the box plot above we see that in 2019 they were very few Sales on Mondays and that the biggest are through the years were Thursday, Friday and Saturday.
+##Preparing Data for Modeling
+I will be considering this data as a time series and such I will use a library made to handle them
+```{r,echo=FALSE}
+if(!require(timetk)){
+  install.packages("timetk")
+}
+library(timetk)
+```
+The goal here is to test to 2 models to predict sales at a given week knowing the previous weeks. We will wan to try to predict the first week of 2019. We going to compare Linear Regression and ARIMA (Auto Regressive Integrated Moving Average) model (you can have a brief summary of ARIMA model here:https://machinelearningmastery.com/gentle-introduction-box-jenkins-method-time-series-forecasting/)
 
+We use the forecast packages to use it:
+```{r, echo=FALSE}
+if(!require(forecast)){
+  install.packages("forecast")
+}
+library(forecast)
+```
+We then transform the data to train and test data and transform the train data into a time serie
+```{r,echo=FALSE}
+#creation of train_set and test_set
+train_set<-DataForAnalysis%>%filter(Year<2019)
+test_set<-DataForAnalysis%>%filter(Year==2019)
+```
 ## Modeling Data
 
 ## Discussion
