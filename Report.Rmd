@@ -3,28 +3,57 @@ title: "Capestone Project"
 author: "James Strayer"
 date: "02/01/2020"
 output:
-  html_document:
-    df_print: paged
   pdf_document: default
 ---
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
-```
+
 
 ## Introduction
-I was asked by a manager of Restaurant that does retail, to predict his Sales, considering the sales of 2018,2017 and 2016. 
+I was asked by a manager of Restaurant that does retail, to have a model to predict his sales for a given week, he gave me a file with the sales  since end of March 2015. 
 
-```{r ,}
+```{r echo=FALSE}
 library(tidyverse)
-#Importing Hours worked each day data
-TimeWorked <- read_csv("Data/TimeWorked.csv")
-#Calculating number of hours worked for each day
-TimePerDay<-TimeWorked%>%group_by(Date)%>%summarize(Total_hours=sum(`Qte(hre)`))
-#Importing Daily Sales data
+#Importing data
 DailySales<-read_csv("Data/DailySales.csv")
-#Creation of the data set needed for the Analysis Where we have both hours worked and sales by departement
-CleanedData<-TimePerDay%>%inner_join(DailySales,by='Date')
+glimpse(DailySales)
+```
+The manager is using the data to have a day to day idea of the health of his buisness and therefore he added an accounting variable, annee fiscale (fiscal year) ,that we don't need and that we can remove.The Month variable is in a format not pratical for analysis (Month, YY) we want to have just the Full moth written without the year. So for simplicity and because we have the full date in the Date column, we are going to remove the month column as it is and create a new one based on the date column, we will do the same for the weekdays column. Furthermore we don't need the day number in our analysis so we will remove it too:
+```{r }
+#Remove unncessary column for the analysis
+DataForAnalysis<-DailySales%>%select(-Weekday,-Month,-Day,-`annee fiscale`)
+#Add a column for weekday and month
+DataForAnalysis<-DataForAnalysis%>%mutate(Weekday=weekdays(Date),Month=months(Date))
+```
+If we look again at the data we see that we have a Sales column, representing the Total Sales for the day and then each column after it, is the total sales for each day for each component of the restaurant possible sales revenu, so Retail, Take-out, Bar and Restaurant. We can see that there is NAs in all of those data
+```{r }
+#looking for NAs in the sales data
+sum(is.na(DataForAnalysis$Sales))
+sum(is.na(DataForAnalysis$Bar_Sales))
+sum(is.na(DataForAnalysis$Retail))
+sum(is.na(DataForAnalysis$TakeOutSales))
+sum(is.na(DataForAnalysis$Sales_Restaurant))
+```
+we will change those NAs to 0, considering a $0 CAD sales for that day and variable
+```{r }
+#Chaning NAs to 0 in the sales data
+DataForAnalysis[is.na(DataForAnalysis$Sales),]$Sales<-0
+DataForAnalysis[is.na(DataForAnalysis$Bar_Sales),]$Bar_Sales<-0
+DataForAnalysis[is.na(DataForAnalysis$Retail),]$Retail<-0
+DataForAnalysis[is.na(DataForAnalysis$TakeOutSales),]$TakeOutSales<-0
+DataForAnalysis[is.na(DataForAnalysis$Sales_Restaurant),]$Sales_Restaurant<-0
+```
+
+Once we Cleaned the data. We are interested to add some classification for the days, specialy considering that holidays and special event should have an impact on the sales of a restaurant, to test this hypothesis we create a data frame event for all the bank holidays and events in the province of Quebec during the year:
+```{r ,echo=FALSE}
+#Creation of a vector of bank holidays and other event (such as Valentine's Day), to identify them
+Event<-c('2015-04-06','2015-05-10','2015-05-18','2015-06-21','2015-06-24','2015-07-01','2015-09-07','2015-10-12','2015-10-31','2015-11-11','2015-12-25','2016-01-01','2016-02-14','2016-03-17','2016-03-28','2016-05-08','2016-05-23','2016-06-19','2016-06-24','2016-07-01','2016-09-05','2016-10-10','2016-10-31','2016-11-11','2016-12-25','2017-01-01','2017-02-14','2017-03-17','2017-04-17','2017-05-14','2017-05-22','2017-06-18','2017-06-24','2017-07-01','2017-09-04','2017-10-09','2017-10-31','2017-11-11','2017-12-24','2018-01-01','2018-02-14','2018-03-17','2018-04-02','2018-04-13','2018-05-21','2018-06-17','2018-06-24','2018-07-01','2018-09-03','2018-10-08','2018-10-31','2018-11-11','2018-12-25','2019-01-01','2019-02-14','2019-03-17','2019-04-22','2019-05-12','2019-05-20','2019-06-16','2019-06-24','2019-07-01','2019-10-02','2019-10-14','2019-10-31','2019-11-11','2019-12-25')
+```
+here is an example of the data used to create that data frame:
+https://www.statutoryholidays.com/2017.php, all dates with observance National, QC and event such as Mother's day and Valentine's day. Once this vector is created we can create a new variable called EventDay which is true if the date equals one of the date in the vector
+```{r }
+#Add a column for EventDay
+DataForAnalysis<-DataForAnalysis%>%mutate(EventDay=ifelse(Date %in% Event,TRUE,FALSE))
+glimpse(DataForAnalysis)
 ```
 
 ## Data exploration
