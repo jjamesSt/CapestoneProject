@@ -54,3 +54,22 @@ ts_train<-tk_ts(DataForAnalysis$Sales,start = 2016,end=2019,frequency = 365)
 #Build ARIMA model
 fit_arima<-auto.arima(ts_arima)
 sw_augment(ts_arima)
+#plot the forecast
+sw_augment(fit_arima, timetk_idx = TRUE) %>% 
+  ggplot(aes(x = index, y = .resid)) +
+  geom_point(colour = 'blue', size = 2) + 
+  geom_line() +
+  geom_hline(yintercept = 0, color = "red") + 
+  labs(title = "Residual diagnostic") +
+  scale_x_date(date_breaks = "1 year", date_labels = "%Y") +
+  theme_classic()
+#calculate the error
+#Calculate the error
+error_arima<- fcast_tbl %>% filter(key == 'forecast') %>% 
+  left_join(actual_tbl, by=c("index"="date")) %>% 
+  mutate(date = index,actual = price.y, pred = price.x) %>% 
+  select(date,actual,pred) %>% 
+  mutate(error = actual - pred,
+         error_pct = error/actual)
+error_arima
+f_error(error_arima)
