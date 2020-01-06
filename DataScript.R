@@ -49,11 +49,32 @@ library(sweep)
 #Creation of the train and test set
 train_set<-DataForAnalysis%>%filter(Year<2019)
 test_set<-DataForAnalysis%>%filter(Year==2019)
+#Create time series with just Days and total sales for the model trainings
+##zoo is a package that allows to index tibble on Date column which is essential for time series
+if(!require(zoo)){
+  install.packages("zoo")
+}
+library(zoo)
 #Creation of the time series data for the ARIMA model
-ts_train<-tk_ts(DataForAnalysis$Sales,start = 2016,end=2019,frequency = 365)
+zoo_train<-train_set%>%select(-Weekday,-Month,-Year,-EventDay,-Retail,-TakeOutSales,-Bar_Sales,-Sales_Restaurant)%>% read.zoo(.,format="%F")
+ts_train<-ts(zoo_train,start=c(2016,1),end=c(2018,1),frequency=52)
+
 #Build ARIMA model
-fit_arima<-auto.arima(ts_arima)
-sw_augment(ts_arima)
+#package for ARIMA model
+if(!require(forecast)){
+  install.packages("forecast")
+}
+library(forecast)
+#Broom-style tidiers for forecast package
+if(!require(sweep)){
+  install.packages("sweep")
+}
+library(sweep) 
+#Build ARIMA model
+fit_arima<-auto.arima(ts_train)
+summary(fit_arima)
+#see the actual value with the prediction
+sw_augment(fit_arima)
 #plot the forecast
 sw_augment(fit_arima, timetk_idx = TRUE) %>% 
   ggplot(aes(x = index, y = .resid)) +
@@ -63,8 +84,26 @@ sw_augment(fit_arima, timetk_idx = TRUE) %>%
   labs(title = "Residual diagnostic") +
   scale_x_date(date_breaks = "1 year", date_labels = "%Y") +
   theme_classic()
+#try to forecast the next 365 days (2019)
+predict_arima<-forecast(fit_arima,h=4)
+#Get the forecast value in a table
+fcast_tbl <- sw_sweep(predict_arima, timetk_idx = TRUE)
+fcast_tbl
+#select test set data corresponding to the predicted data
+actual_tbl <- test_set%>%filter(Date %in% test_set$Date[seq(1,29)])
+#Visualize with actual value
+fcast_tbl %>% 
+  ggplot(aes(x = index, y = value, color = key)) +
+  geom_line() +
+  geom_point() +
+  geom_ribbon(aes(ymin = lo.95,ymax = hi.95),
+              fill = '#596DD5', alpha = 0.8,size = 0) +
+  #Actual data
+  geom_point(data = actual_tbl, aes(x = Date, y = Sales), color = 'red') +
+  labs(title = "Sales Forecast: ARIMA", x = "", y = "Canadian Dollard",
+       subtitle = "sw_sweep tidies the auto.arima() forecast output") +
+  scale_x_date(date_breaks = "1 year", date_labels = "%Y")
 #calculate the error
-#Calculate the error
 error_arima<- fcast_tbl %>% filter(key == 'forecast') %>% 
   left_join(actual_tbl, by=c("index"="date")) %>% 
   mutate(date = index,actual = price.y, pred = price.x) %>% 
@@ -72,4 +111,3 @@ error_arima<- fcast_tbl %>% filter(key == 'forecast') %>%
   mutate(error = actual - pred,
          error_pct = error/actual)
 error_arima
-f_error(error_arima)
