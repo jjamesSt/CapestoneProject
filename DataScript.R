@@ -111,3 +111,43 @@ error_arima<- fcast_tbl %>% filter(key == 'forecast') %>%
   mutate(error = actual - pred,
          error_pct = error/actual)
 error_arima
+#transform Data to time series for linear regression
+DataLr<-DataForAnalysis%>%tk_augment_timeseries_signature()
+DataLr
+#Define train and test set
+trainLr_set<-DataLr%>%filter(Date<'2019-01-01')
+trainLr_set<-trainLr_set%>% select(-Retail,-TakeOutSales,-Bar_Sales,-Sales_Restaurant,-EventDay)
+testLr_set<-DataLr%>%filter(Date>='2019-01-01')
+testLr_set<-testLr_set%>% select(-Retail,-TakeOutSales,-Bar_Sales,-Sales_Restaurant,-EventDay)
+#construct the model
+set.seed(42,sample.kind = "Rounding")
+fit_Lr<-lm(Sales~.,data=select(trainLr_set,-Date))
+summary(fit_Lr)
+#make a prediction using the model 
+predict_lr<-predict(fit_Lr,newdata=select(testLr_set,-Date))
+#calculate the error on each model 
+error_lr<-testLr_set%>%select(Date,actual=Sales)%>%
+  mutate(pred=predict_lr,
+         error=actual-predict_lr,
+         error_pct=error/actual)
+error_lr
+#Plot the prediction against test data
+dataToPlot<-testLr_set%>%add_column(pred=predict(fit_Lr,testLr_set)%>%tibble::enframe(name = NULL) %>% pull(value))
+dataToPlot %>%
+  ggplot(aes(x = Date, y = pred)) +
+  geom_line() +
+  geom_point()+
+  geom_line(data = testLr_set,aes(x=Date,y=Sales),color="red",alpha=0.5)+
+  scale_x_date(date_breaks = "1 year", date_labels = "%F") +
+  scale_color_manual(
+    values = c(
+      "weekly_sales" = "black",
+      "lm_pred" = "#fdc7d7"
+    )
+  ) +
+  theme_classic() +
+  labs(title = "model fit",
+       subtitle = "test data: 2019",
+       x = "Date",
+       y = "daily sales (in CAD)"
+  )

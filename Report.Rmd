@@ -209,7 +209,6 @@ summary(fit_Lr)
 ```
 Now we can predict
 ```{r}
-set.seed(42,sample.kind = "Rounding")
 predict_lr<-predict(fit_Lr,newdata=select(testLr_set,-Date))
 error_lr<-testLr_set%>%select(Date,actual=Sales)%>%
   mutate(pred=predict_lr,
