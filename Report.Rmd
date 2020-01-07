@@ -159,7 +159,7 @@ sw_augment(fit_arima, timetk_idx = TRUE) %>%
 ```
 We then forecast for 2019
 
-```{r}
+```{r echo=FALSE}
 predict_arima<-forecast(fit_arima,h=365)
 #Get the forecast value in a table
 fcast_tbl <- sw_sweep(predict_arima,timetk_idx =TRUE)
@@ -191,7 +191,7 @@ error_arima
 
 ## Linear Regression
 We take this time the all database and transform into a time serie before splitting into train and test set
-```{r}
+```{r,echo=FALSE}
 #transform Data to time series for linear regression
 DataLr<-DataForAnalysis%>%tk_augment_timeseries_signature()
 DataLr
@@ -216,7 +216,6 @@ error_lr<-testLr_set%>%select(Date,actual=Sales)%>%
          error=actual-predict_lr,
          error_pct=error/actual)
 error_lr
-set.seed(42,sample.kind = "Rounding")
 dataToPlot<-testLr_set%>%add_column(pred=predict(fit_Lr,testLr_set)%>%tibble::enframe(name = NULL) %>% pull(value))
 dataToPlot %>%
  ggplot(aes(x = Date, y = pred)) +
@@ -237,4 +236,7 @@ geom_line(data = testLr_set,aes(x=Date,y=Sales),color="red",alpha=0.5)+
   y = "daily sales (in CAD)"
   )
 ```
+On the plot abobe we see in red The actual value of sales and in black the prediction made by the linear regression model.
+
 # Discussion
+In conclusion, we see that the linear regression has a better accuracy than the ARIMA model for predicting the sales for 2019. Both these models could be improved by splitting the data on weekdays and looking at the sales by weekday. We saw that the restaurant was not open on (made no sales) Monday for 2019. When comparing the sales by year we see that 2019 was similar in term of sales to the other year with only 341 days opened instead of 365 days. It might be interesting to predict the sales for 2019 considering the full 365 days. 
