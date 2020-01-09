@@ -11,7 +11,7 @@ output:
 
 
 # Introduction
-I was asked by a manager of Restaurant that does retail, to have a model to predict his sales for a given week, he gave me a file with the sales  since end of March 2015. He started as the manager on 01-10-2018
+I was given data from a Restaurant that sales some of their product in retail to find a model to predict the sales, The data start from 2015
 
 ## Data import and cleaning
 ```{r echo=FALSE}
@@ -23,7 +23,7 @@ if(!require(tidyverse)){
 DailySales<-read_csv("Data/DailySales.csv")
 glimpse(DailySales)
 ```
-The manager is using the data to have a day to day idea of the health of his buisness and therefore he added an accounting variable, annee fiscale (fiscal year) ,that we don't need and that we can remove.The Month variable is in a format not pratical for analysis (Month, YY) we want to have just the Full moth written without the year. So for simplicity and because we have the full date in the Date column, we are going to remove the month column as it is and create a new one based on the date column, we will do the same for the weekdays column. Furthermore we don't need the day number in our analysis so we will remove it too:
+We can't remove the fiscal year .The Month variable is in a format not pratical for analysis (Month, YY) we want to have just the Full moth written without the year. So for simplicity and because we have the full date in the Date column, we are going to remove the month column as it is and create a new one based on the date column, we will do the same for the weekdays column. Furthermore we don't need the day number in our analysis so we will remove it too:
 ```{r }
 #Remove unncessary column for the analysis
 DataForAnalysis<-DailySales%>%select(-Weekday,-Month,-Day,-`annee fiscale`)
@@ -108,11 +108,28 @@ if(!require(sweep)){
 }
 library(sweep) 
 ```
-We then transform the data to train and test data and transform the train data into a time serie
+We then transform the data to train and test data. We use 2016 to 2018 to predict 2019 sales data:
 ```{r,echo=FALSE}
 #creation of train_set and test_set
 train_set<-DataForAnalysis%>%filter(Year <2019)
 test_set<-DataForAnalysis%>%filter(Year==2019)
+```
+
+# Modeling Data
+## ARIMA Model
+We are going to test to 2 models to predict sales at a given week knowing the previous weeks. We will wan to try to predict the first week of 2019. We going to compare Linear Regression and ARIMA (Auto Regressive Integrated Moving Average) model (you can have a brief summary of ARIMA model here:https://machinelearningmastery.com/gentle-introduction-box-jenkins-method-time-series-forecasting/)
+
+We first transform our train data to a time series and plot the sales over the years.we see that over the 3 years the data looks sationary, so we'll use a 7 days lag with a moving average window of 45 days to we define our model as:
+```{r,fig.align='center', echo=FALSE}
+if(!require(forecast)){
+  install.packages("forecast")
+}
+library(forecast)
+#Broom-style tidiers for forecast package
+if(!require(sweep)){
+  install.packages("sweep")
+}
+library(sweep)
 #Create time series with just Days and total sales for the model trainings
 ##zoo is a package that allows to index tibble on Date column which is essential for time series
 if(!require(zoo)){
@@ -123,31 +140,18 @@ library(zoo)
 set.seed(412,sample.kind = "Rounding")
 zoo_train<-train_set%>%select(-Weekday,-Month,-Year,-EventDay,-Retail,-TakeOutSales,-Bar_Sales,-Sales_Restaurant)%>% read.zoo(.,format="%F")
 ts_train<-ts(zoo_train,start=2016,end=2019,frequency = 365)
-```
-# Modeling Data
-## ARIMA Model
-We are going to test to 2 models to predict sales at a given week knowing the previous weeks. We will wan to try to predict the first week of 2019. We going to compare Linear Regression and ARIMA (Auto Regressive Integrated Moving Average) model (you can have a brief summary of ARIMA model here:https://machinelearningmastery.com/gentle-introduction-box-jenkins-method-time-series-forecasting/)
-
-We use the forecast packages to use it:
-```{r, echo=FALSE}
-if(!require(forecast)){
-  install.packages("forecast")
-}
-library(forecast)
-#Broom-style tidiers for forecast package
-if(!require(sweep)){
-  install.packages("sweep")
-}
-library(sweep) 
+#Show the time serie
+plot(ts_train)
+labs(title = "Sales Times Series by year")
 #Build ARIMA model
 set.seed(412,sample.kind = "Rounding")
-fit_arima<-auto.arima(ts_train)
+fit_arima<-Arima(ts_train,c(7,0,45))
 
 summary(fit_arima)
 #see the acutal value with the prediction
 sw_augment(fit_arima,timetk_idx = TRUE)
 ```
-We see that as we go forward in time the model tries to correct the  residual but fails miserably get corrected by the mean of the previous days we can visualize the evolution of the residuals:
+By looking at the residual we see that most of it is between -1000 and 1000 with quite few outliers, the model seems good considering the quantity of data:
 ```{r,fig.align='center',echo=FALSE}
 sw_augment(fit_arima, timetk_idx = TRUE) %>% 
   ggplot(aes(x = index, y = .resid)) +
@@ -157,9 +161,9 @@ sw_augment(fit_arima, timetk_idx = TRUE) %>%
     labs(title = "Residual diagnostic") +
     theme_classic()
 ```
-We then forecast for 2019
+Once we have our model we can forecast the next 365 days of our data,so 2019. We see that the ARIMA(7,0,45) model does not predict the high spikes of sales but still distinguish 7 different pattern, that correspond to the distribution of days of the week. 
 
-```{r echo=FALSE}
+```{r,fig.align='center' echo=FALSE}
 predict_arima<-forecast(fit_arima,h=365)
 #Get the forecast value in a table
 fcast_tbl <- sw_sweep(predict_arima,timetk_idx =TRUE)
@@ -169,10 +173,7 @@ actual_tbl <- test_set
 #Visualize with actual value
 fcast_tbl %>% 
    ggplot(aes(x = index, y = value, color = key)) +
-   geom_line() +
    geom_point() +
-  geom_ribbon(aes(ymin = lo.80,ymax = hi.80),
-              fill = '#596DD5', alpha = 0.2,size = 0) +
   #Actual data
    geom_line(data = actual_tbl, aes(x = Date, y = Sales), color = 'red',alpha=0.1)+
    #geom_point(data = actual_tbl, aes(x = Date, y = Sales), color = 'red') +
@@ -190,7 +191,7 @@ error_arima
 ```
 
 ## Linear Regression
-We take this time the all database and transform into a time serie before splitting into train and test set
+To ease the comparison of the models we are going to first transform our full data set to an augmented timeserie, which give us specification on the day, month and years of the Date column. We remove the same variable as the ARIMA model to create our train and test set data for the linear model 
 ```{r,echo=FALSE}
 #transform Data to time series for linear regression
 DataLr<-DataForAnalysis%>%tk_augment_timeseries_signature()
@@ -201,14 +202,14 @@ trainLr_set<-trainLr_set%>% select(-Retail,-TakeOutSales,-Bar_Sales,-Sales_Resta
 testLr_set<-DataLr%>%filter(Date>='2019-01-01')
 testLr_set<-testLr_set%>% select(-Retail,-TakeOutSales,-Bar_Sales,-Sales_Restaurant,-EventDay)
 ```
-We can know fit our training data
+We define our linear model such as all the variable defined in our train set is used to predict Sales:
 ```{r}
 set.seed(42,sample.kind = "Rounding")
 fit_Lr<-lm(Sales~.,data=select(trainLr_set,-Date))
 summary(fit_Lr)
 ```
-Now we can predict
-```{r}
+We see that all the variable created by the augmented ts was used to define the model to predict our sales. Now that the model is trained, we can predict the test Data with our model
+```{r,fig.align='center'}
 predict_lr<-predict(fit_Lr,newdata=select(testLr_set,-Date))
 error_lr<-testLr_set%>%select(Date,actual=Sales)%>%
   mutate(pred=predict_lr,
@@ -224,7 +225,7 @@ geom_line(data = testLr_set,aes(x=Date,y=Sales),color="red",alpha=0.5)+
  scale_x_date(date_breaks = "1 year", date_labels = "%F") +
  scale_color_manual(
   values = c(
-   "weekly_sales" = "black",
+   "weekly_sales" = "blue",
    "lm_pred" = "#fdc7d7"
   )
  ) +
@@ -235,7 +236,7 @@ geom_line(data = testLr_set,aes(x=Date,y=Sales),color="red",alpha=0.5)+
   y = "daily sales (in CAD)"
   )
 ```
-On the plot abobe we see in red The actual value of sales and in black the prediction made by the linear regression model.
+On the plot above we see in red The actual value of sales and in black the prediction made by the linear regression model.
 
 # Discussion
 In conclusion, we see that the linear regression has a better accuracy than the ARIMA model for predicting the sales for 2019. Both these models could be improved by splitting the data on weekdays and looking at the sales by weekday. We saw that the restaurant was not open on (made no sales) Monday for 2019. When comparing the sales by year we see that 2019 was similar in term of sales to the other year with only 341 days opened instead of 365 days. It might be interesting to predict the sales for 2019 considering the full 365 days. 

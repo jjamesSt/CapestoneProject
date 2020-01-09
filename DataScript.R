@@ -58,7 +58,8 @@ library(zoo)
 #Creation of the time series data for the ARIMA model
 zoo_train<-train_set%>%select(-Weekday,-Month,-Year,-EventDay,-Retail,-TakeOutSales,-Bar_Sales,-Sales_Restaurant)%>% read.zoo(.,format="%F")
 ts_train<-ts(zoo_train,start=c(2016,1),end=c(2018,1),frequency=52)
-
+#Show the time serie
+plot(ts_train)
 #Build ARIMA model
 #package for ARIMA model
 if(!require(forecast)){
