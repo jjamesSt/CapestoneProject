@@ -20,10 +20,11 @@ if(!require(tidyverse)){
   library(tidyverse)
 }
 #Importing data
-DailySales<-read_csv("Data/DailySales.csv")
+DailySales<-read_csv("https://raw.githubusercontent.com/jjamesSt/CapestoneProject/master/Data/DailySales.csv")
 glimpse(DailySales)
 ```
-We can't remove the fiscal year .The Month variable is in a format not pratical for analysis (Month, YY) we want to have just the Full moth written without the year. So for simplicity and because we have the full date in the Date column, we are going to remove the month column as it is and create a new one based on the date column, we will do the same for the weekdays column. Furthermore we don't need the day number in our analysis so we will remove it too:
+
+In our data set we have 10 variables for 1715 observations corresponding to the number of days the restaurant was open since the 29-03-2015.We can remove the fiscal year .The Month variable is in a format not pratical for analysis (Month, YY) we want to have just the Full moth written without the year. So for simplicity and because we have the full date in the Date column, we are going to remove the month column as it is and create a new one based on the date column, we will do the same for the weekdays column. Furthermore we don't need the day number in our analysis so we will remove it too:
 ```{r }
 #Remove unncessary column for the analysis
 DataForAnalysis<-DailySales%>%select(-Weekday,-Month,-Day,-`annee fiscale`)
@@ -49,18 +50,6 @@ DataForAnalysis[is.na(DataForAnalysis$TakeOutSales),]$TakeOutSales<-0
 DataForAnalysis[is.na(DataForAnalysis$Sales_Restaurant),]$Sales_Restaurant<-0
 ```
 
-Once we Cleaned the data. We are interested to add some classification for the days, specialy considering that holidays and special event should have an impact on the sales of a restaurant, to test this hypothesis we create a data frame event for all the bank holidays and events in the province of Quebec during the year:
-```{r ,echo=FALSE}
-#Creation of a vector of bank holidays and other event (such as Valentine's Day), to identify them
-Event<-c('2015-04-06','2015-05-10','2015-05-18','2015-06-21','2015-06-24','2015-07-01','2015-09-07','2015-10-12','2015-10-31','2015-11-11','2015-12-25','2016-01-01','2016-02-14','2016-03-17','2016-03-28','2016-05-08','2016-05-23','2016-06-19','2016-06-24','2016-07-01','2016-09-05','2016-10-10','2016-10-31','2016-11-11','2016-12-25','2017-01-01','2017-02-14','2017-03-17','2017-04-17','2017-05-14','2017-05-22','2017-06-18','2017-06-24','2017-07-01','2017-09-04','2017-10-09','2017-10-31','2017-11-11','2017-12-24','2018-01-01','2018-02-14','2018-03-17','2018-04-02','2018-04-13','2018-05-21','2018-06-17','2018-06-24','2018-07-01','2018-09-03','2018-10-08','2018-10-31','2018-11-11','2018-12-25','2019-01-01','2019-02-14','2019-03-17','2019-04-22','2019-05-12','2019-05-20','2019-06-16','2019-06-24','2019-07-01','2019-10-02','2019-10-14','2019-10-31','2019-11-11','2019-12-25')
-```
-here is an example of the data used to create that data frame:
-https://www.statutoryholidays.com/2017.php, all dates with observance National, QC and event such as Mother's day and Valentine's day. Once this vector is created we can create a new variable called EventDay which is true if the date equals one of the date in the vector
-```{r }
-#Add a column for EventDay
-DataForAnalysis<-DataForAnalysis%>%mutate(EventDay=ifelse(Date %in% Event,TRUE,FALSE))
-```
-
 # Data exploration
 ```{r}
 #look at the structure of the data
@@ -76,7 +65,7 @@ DataForAnalysis<-DataForAnalysis%>%filter(Year>=2016)
 #Summary statistics for the variable
 summary(DataForAnalysis)
 ```
-In our data set we have 10 variables for 1715 observations corresponding to the number of days the restaurant was open since the 29-03-2015.
+
 
 ## Sales Variable
 ```{r,echo=FALSE}
@@ -89,7 +78,7 @@ We see In the box plot above that 2019 was similar to 2018 in term of sales but 
 DataForAnalysis%>%group_by(Weekday)%>%ggplot(aes(x=Weekday,y=Sales))+geom_boxplot()+facet_wrap(DataForAnalysis$Year)+ggtitle("Sales distribution by Day of the Week for each year")
 ```
 
-In the box plot above we see that in 2019 they were very few Sales on Mondays and that the biggest are through the years were Thursday, Friday and Saturday.
+In the box plot above we see that in 2019 they were very few Sales on Mondays and that the biggest, through the years, were Thursday, Friday and Saturday.
 ##Preparing Data for Modeling
 I will be considering this data as a time series and such I will use a library made to handle them
 ```{r,echo=FALSE}
@@ -119,7 +108,7 @@ test_set<-DataForAnalysis%>%filter(Year==2019)
 ## ARIMA Model
 We are going to test to 2 models to predict sales at a given week knowing the previous weeks. We will wan to try to predict the first week of 2019. We going to compare Linear Regression and ARIMA (Auto Regressive Integrated Moving Average) model (you can have a brief summary of ARIMA model here:https://machinelearningmastery.com/gentle-introduction-box-jenkins-method-time-series-forecasting/)
 
-We first transform our train data to a time series and plot the sales over the years.we see that over the 3 years the data looks sationary, so we'll use a 7 days lag with a moving average window of 45 days to we define our model as:
+We first transform our train data to a time series and plot the sales over the years
 ```{r,fig.align='center', echo=FALSE}
 if(!require(forecast)){
   install.packages("forecast")
@@ -138,11 +127,14 @@ if(!require(zoo)){
 library(zoo)
 #Transform the train set and the test set to a zoo format so it can be easilier transform to a time series thanks to the index on the Date
 set.seed(412,sample.kind = "Rounding")
-zoo_train<-train_set%>%select(-Weekday,-Month,-Year,-EventDay,-Retail,-TakeOutSales,-Bar_Sales,-Sales_Restaurant)%>% read.zoo(.,format="%F")
+zoo_train<-train_set%>%select(-Weekday,-Month,-Year,-Retail,-TakeOutSales,-Bar_Sales,-Sales_Restaurant)%>% read.zoo(.,format="%F")
 ts_train<-ts(zoo_train,start=2016,end=2019,frequency = 365)
 #Show the time serie
 plot(ts_train)
 labs(title = "Sales Times Series by year")
+```
+We see that over the 3 years the data looks sationary, so we'll use a 7 days lag with a moving average window of 45 days to we define our model as:
+```{r}
 #Build ARIMA model
 set.seed(412,sample.kind = "Rounding")
 fit_arima<-Arima(ts_train,c(7,0,45))
@@ -163,7 +155,7 @@ sw_augment(fit_arima, timetk_idx = TRUE) %>%
 ```
 Once we have our model we can forecast the next 365 days of our data,so 2019. We see that the ARIMA(7,0,45) model does not predict the high spikes of sales but still distinguish 7 different pattern, that correspond to the distribution of days of the week. 
 
-```{r,fig.align='center' echo=FALSE}
+```{r,fig.align='center', echo=FALSE}
 predict_arima<-forecast(fit_arima,h=365)
 #Get the forecast value in a table
 fcast_tbl <- sw_sweep(predict_arima,timetk_idx =TRUE)
@@ -195,14 +187,15 @@ To ease the comparison of the models we are going to first transform our full da
 ```{r,echo=FALSE}
 #transform Data to time series for linear regression
 DataLr<-DataForAnalysis%>%tk_augment_timeseries_signature()
-DataLr
 #Define train and test set
 trainLr_set<-DataLr%>%filter(Date<'2019-01-01')
-trainLr_set<-trainLr_set%>% select(-Retail,-TakeOutSales,-Bar_Sales,-Sales_Restaurant,-EventDay)
+trainLr_set<-trainLr_set%>% select(-Retail,-TakeOutSales,-Bar_Sales,-Sales_Restaurant)
 testLr_set<-DataLr%>%filter(Date>='2019-01-01')
-testLr_set<-testLr_set%>% select(-Retail,-TakeOutSales,-Bar_Sales,-Sales_Restaurant,-EventDay)
+testLr_set<-testLr_set%>% select(-Retail,-TakeOutSales,-Bar_Sales,-Sales_Restaurant)
+str(trainLr_set)
+str(testLr_set)
 ```
-We define our linear model such as all the variable defined in our train set is used to predict Sales:
+We define our linear model such as all the variable defined in our train set is used to predict the Sales variable:
 ```{r}
 set.seed(42,sample.kind = "Rounding")
 fit_Lr<-lm(Sales~.,data=select(trainLr_set,-Date))
@@ -239,4 +232,5 @@ geom_line(data = testLr_set,aes(x=Date,y=Sales),color="red",alpha=0.5)+
 On the plot above we see in red The actual value of sales and in black the prediction made by the linear regression model.
 
 # Discussion
-In conclusion, we see that the linear regression has a better accuracy than the ARIMA model for predicting the sales for 2019. Both these models could be improved by splitting the data on weekdays and looking at the sales by weekday. We saw that the restaurant was not open on (made no sales) Monday for 2019. When comparing the sales by year we see that 2019 was similar in term of sales to the other year with only 341 days opened instead of 365 days. It might be interesting to predict the sales for 2019 considering the full 365 days. 
+We see that the linear regression has a better accuracy than the ARIMA model for predicting the sales for 2019. But The ARIMA model is able to differentiate the trends between the weekdays. One Interesting way we could improve the ARIMA would be to try to find the best ARIMA model for each day in a week for all the years in the data set and combine them to have a better approximation of the sales for any given day and would allows us to compare the sales to the same day last year. 
+We see that both models failed to predict the high spikes of sales corresponding to the middle of the year, April through October, when the sidewalk sitting area is open, which give to the restaurant more sitting places, so potentially more sales. Furthermore it might be interesint to include weather data to analyse the effect of rainy days (or snowy days) on the sales of the Restaurant. 
